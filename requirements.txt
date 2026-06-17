@@ -1,0 +1,6 @@
+%%writefile requirements.txt
+streamlit
+duckdb
+pandas
+plotly
+pyarrow
