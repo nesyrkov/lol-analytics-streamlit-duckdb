@@ -1,1 +1,216 @@
+# Описание данных League of Legends
 
+В проекте используются три основных parquet-файла:
+
+- `players_3region.parquet`
+- `matches_3region.parquet`
+- `participants_3region.parquet`
+
+Эти файлы содержат данные по матчам League of Legends, игрокам и участникам матчей. Формат parquet выбран потому, что он компактно хранит табличные данные и быстро читается в Python, DuckDB и других аналитических инструментах.
+
+## Структура данных
+
+### `matches_3region.parquet`
+
+Файл содержит информацию о матчах.
+
+Обычно в нем хранятся:
+
+- идентификатор матча;
+- регион;
+- дата или время матча;
+- команды;
+- результат матча;
+- длительность игры;
+- основные игровые показатели;
+- служебные поля, полученные из источника данных.
+
+Этот файл является основой для анализа матчей: по нему можно смотреть количество игр, распределение по регионам, победителей, длительность матчей и общую статистику.
+
+### `players_3region.parquet`
+
+Файл содержит информацию об игроках.
+
+Обычно в нем хранятся:
+
+- идентификатор игрока;
+- никнейм или имя игрока;
+- команда;
+- регион;
+- роль игрока;
+- дополнительные сведения об игроке, если они есть в исходных данных.
+
+Этот файл используется как справочник игроков. Его удобно объединять с таблицей участников матча, чтобы получать не только игровые показатели, но и информацию о самом игроке.
+
+### `participants_3region.parquet`
+
+Файл содержит информацию об участниках конкретных матчей.
+
+Обычно в нем хранятся:
+
+- идентификатор матча;
+- идентификатор игрока или участника;
+- команда;
+- выбранный чемпион;
+- роль или позиция;
+- статистика игрока в матче;
+- убийства, смерти, ассисты;
+- золото, урон, фарм и другие игровые метрики;
+- результат участия в матче.
+
+Этот файл связывает матчи и игроков. Одна строка обычно соответствует одному игроку в одном матче.
+
+## Связь между файлами
+
+Три файла можно использовать вместе:
+
+- `matches_3region.parquet` описывает матч;
+- `players_3region.parquet` описывает игроков;
+- `participants_3region.parquet` описывает участие игроков в конкретных матчах.
+
+Типичная логика объединения:
+
+```text
+matches_3region.parquet
+        |
+        | match_id
+        |
+participants_3region.parquet
+        |
+        | player_id / summoner_id / puuid
+        |
+players_3region.parquet
+```
+
+Названия ключевых колонок могут отличаться в зависимости от источника данных. Перед объединением рекомендуется проверить реальные названия колонок.
+
+## Как загрузить данные в pandas
+
+```python
+import pandas as pd
+
+players = pd.read_parquet("players_3region.parquet")
+matches = pd.read_parquet("matches_3region.parquet")
+participants = pd.read_parquet("participants_3region.parquet")
+
+display(players.head())
+display(matches.head())
+display(participants.head())
+```
+
+## Проверить размер таблиц
+
+```python
+print("players:", players.shape)
+print("matches:", matches.shape)
+print("participants:", participants.shape)
+```
+
+## Посмотреть колонки
+
+```python
+print("players columns:")
+print(players.columns.tolist())
+
+print("matches columns:")
+print(matches.columns.tolist())
+
+print("participants columns:")
+print(participants.columns.tolist())
+```
+
+## Удаление дубликатов
+
+Если данные были объединены из нескольких регионов или новых выгрузок, можно удалить полные дубликаты строк:
+
+```python
+players = players.drop_duplicates().reset_index(drop=True)
+matches = matches.drop_duplicates().reset_index(drop=True)
+participants = participants.drop_duplicates().reset_index(drop=True)
+```
+
+После этого данные можно сохранить обратно:
+
+```python
+players.to_parquet("players_3region.parquet", index=False)
+matches.to_parquet("matches_3region.parquet", index=False)
+participants.to_parquet("participants_3region.parquet", index=False)
+```
+
+## Как загрузить данные в DuckDB
+
+```python
+import duckdb
+
+con = duckdb.connect()
+
+con.execute("""
+    CREATE OR REPLACE VIEW players AS
+    SELECT * FROM read_parquet('players_3region.parquet')
+""")
+
+con.execute("""
+    CREATE OR REPLACE VIEW matches AS
+    SELECT * FROM read_parquet('matches_3region.parquet')
+""")
+
+con.execute("""
+    CREATE OR REPLACE VIEW participants AS
+    SELECT * FROM read_parquet('participants_3region.parquet')
+""")
+```
+
+Пример SQL-запроса:
+
+```python
+con.execute("""
+    SELECT *
+    FROM participants
+    LIMIT 10
+""").df()
+```
+
+## Возможные аналитические задачи
+
+На основе этих файлов можно анализировать:
+
+- количество матчей по регионам;
+- популярность чемпионов;
+- статистику игроков;
+- показатели команд;
+- распределение ролей;
+- связь игровых метрик с победой;
+- среднюю длительность матчей;
+- результаты по регионам и командам.
+
+## Пример анализа
+
+```python
+# Топ-10 чемпионов по количеству появлений,
+# если в participants есть колонка champion_name
+
+participants["champion_name"].value_counts().head(10)
+```
+
+```python
+# Количество матчей по регионам,
+# если в matches есть колонка region
+
+matches["region"].value_counts()
+```
+
+## Примечание
+
+Перед построением аналитики рекомендуется проверить реальные названия колонок в каждом parquet-файле. В разных выгрузках названия ключей могут отличаться, например:
+
+- `match_id`;
+- `game_id`;
+- `player_id`;
+- `summoner_id`;
+- `puuid`;
+- `champion`;
+- `champion_name`;
+- `team_id`;
+- `region`.
+
+Если колонка называется иначе, ее нужно использовать в запросах и объединениях под фактическим именем.
