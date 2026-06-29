@@ -2,7 +2,7 @@
 
 Интерактивный аналитический проект по игре **League of Legends**, построенный на связке **DuckDB + Streamlit**.
 
-Проект доступен по ссылке: [League of Legends Analytics App](https://lol-analytics-app-duckdb-btztumpzxzcxhkkdckdeqg.streamlit.app/)
+Проект доступен по ссылке: [League of Legends Analytics App]((https://lol-analytics-app-duckdb-btztumpzxzcxhkkdckdeqg.streamlit.app/))
 
 ## О проекте
 
